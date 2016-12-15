@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <!-- jQuery so I can do ajax calls -->
+    <script src="https://code.jquery.com/jquery-3.1.0.min.js" integrity="sha256-cCueBR6CsyA4/9szpPfrX3s49M9vUU5BgtiJj06wt/s="   crossorigin="anonymous"></script>
+    <script src="adal.js"></script>
+
+</head>
+<body>
+
+<a href="javascript:;" class="app-login">Login</a>
+<div class="app-user"></div>
+<div class="app-error"></div>
+<button class="app-logout">Log out</button>
+
+</body>
+
+<script>
+
+ $(document).ready(function() {
+ 	
+    var $signInButton = $(".app-login");
+    var $errorMessage = $(".app-error");
+    var $userDisplay = $(".app-user");
+    var $signOutButton = $(".app-logout");
+
+    $userDisplay.hide();
+    
+    var CORS_endpoints = {
+        "api endpoint here with cors turned on": 'client id of api endpoint' //if you need to call and api that is authenticated
+    };
+    
+    var DATA_ENDPOINT = "/user/auth/orgid/1"; //example api endpoint
+
+    var config = {
+        instance: 'https://login.microsoftonline.com/',
+        tenant: 'yourADname.onmicrosoft.com',
+        clientId: 'your-client-id-guid',
+        postLogoutRedirectUri: 'the uri you want to go to after you log out',//window.location.origin,
+        cacheLocation: 'localStorage', // enable this for IE, as sessionStorage does not work for localhost.
+        endpoints: CORS_endpoints  // If you need to send CORS api requests.
+    }
+ 	
+    var authContext = new AuthenticationContext(config);
+ 		
+    // Check For & Handle Redirect From AAD After Login
+    var isCallback = authContext.isCallback('the uri you want to go to after you log out');
+    authContext.handleWindowCallback();
+    $errorMessage.html(authContext.getLoginError());
+
+    if (isCallback && !authContext.getLoginError()) {
+        window.location = authContext._getItem(authContext.CONSTANTS.STORAGE.LOGIN_REQUEST);
+    }
+    
+    var user = authContext.getCachedUser();
+
+    if (user) {
+        $userDisplay.html(user.userName);
+        $userDisplay.show();
+        $signInButton.hide();
+        $signOutButton.show();
+    } else {
+        $userDisplay.empty();
+        $userDisplay.hide();
+        $signInButton.show();
+        $signOutButton.hide();
+    }
+    
+    
+    $signInButton.click(function () {
+        authContext.login();
+    });
+
+    $signOutButton.click(function () {
+        window.location = 'https://login.microsoftonline.com/' + config.tenant + '/oauth2/logout?post_logout_redirect_uri=' + encodeURIComponent('your reply url (that you specified in Azure configuration)');
+        authContext.clearCache();
+    });
+    
+ });
+</script>
+
+</html>
