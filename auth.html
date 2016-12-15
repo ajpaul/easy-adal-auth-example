@@ -8,47 +8,50 @@
 
 </head>
 <body>
-
+<!--<img src="screenshot_5.png"><br/>-->
 <a href="javascript:;" class="app-login">Login</a>
 <div class="app-user"></div>
+<a href="javascript:;" class="call-api">Call Protected API</a>
+<div class="api-data"></div>
+<a href="javascript:;" class="app-logout">LogOut</a>
 <div class="app-error"></div>
-<button class="app-logout">Log out</button>
-
 </body>
 
 <script>
 
+
+
  $(document).ready(function() {
  	
     var $signInButton = $(".app-login");
+    var $apiButton = $(".call-api");
     var $errorMessage = $(".app-error");
     var $userDisplay = $(".app-user");
+    var $apiData = $(".api-data");
     var $signOutButton = $(".app-logout");
-
     $userDisplay.hide();
     
     var CORS_endpoints = {
-        "api endpoint here with cors turned on": 'client id of api endpoint' //if you need to call and api that is authenticated
+        api_endpoint : 'your-endpoint-guid' //app where the protected api is located
     };
     
-    var DATA_ENDPOINT = "/user/auth/orgid/1"; //example api endpoint
+    var DATA_ENDPOINT = "/user/auth/orgid/1";
 
     var config = {
         instance: 'https://login.microsoftonline.com/',
-        tenant: 'yourADname.onmicrosoft.com',
+        tenant: 'your-azure-active-directory.onmicrosoft.com',
         clientId: 'your-client-id-guid',
-        postLogoutRedirectUri: 'the uri you want to go to after you log out',//window.location.origin,
+        postLogoutRedirectUri: window.location.origin,  
         cacheLocation: 'localStorage', // enable this for IE, as sessionStorage does not work for localhost.
         endpoints: CORS_endpoints  // If you need to send CORS api requests.
     }
  	
-    var authContext = new AuthenticationContext(config);
+ 	var authContext = new AuthenticationContext(config);
  		
-    // Check For & Handle Redirect From AAD After Login
-    var isCallback = authContext.isCallback('the uri you want to go to after you log out');
+ 	// Check For & Handle Redirect From AAD After Login
+    var isCallback = authContext.isCallback(window.location.hash); 
     authContext.handleWindowCallback();
     $errorMessage.html(authContext.getLoginError());
-
     if (isCallback && !authContext.getLoginError()) {
         window.location = authContext._getItem(authContext.CONSTANTS.STORAGE.LOGIN_REQUEST);
     }
@@ -60,23 +63,61 @@
         $userDisplay.show();
         $signInButton.hide();
         $signOutButton.show();
+        $apiButton.show();
     } else {
         $userDisplay.empty();
         $userDisplay.hide();
         $signInButton.show();
         $signOutButton.hide();
-    }
-    
+        $apiButton.hide();
+    }    
     
     $signInButton.click(function () {
         authContext.login();
     });
-
-    $signOutButton.click(function () {
-        window.location = 'https://login.microsoftonline.com/' + config.tenant + '/oauth2/logout?post_logout_redirect_uri=' + encodeURIComponent('your reply url (that you specified in Azure configuration)');
-        authContext.clearCache();
+    
+    $apiButton.click(function () {
+        callApi();
     });
     
+    $signOutButton.click(function () {
+        authContext.logOut();
+    });
+    
+    function callApi() {
+
+        // Empty Old View Contents        
+        $apiData.empty();
+
+        // Acquire Token for Backend
+        authContext.acquireToken('your-protected-api-endpoint-guid', function (error, token) {
+        	
+
+            // Handle ADAL Error
+            if (error || !token) {
+                alert('ADAL Error Occurred: ' + error);
+                return;
+            }
+
+            // Get TodoList Data
+            $.ajax({
+                type: "GET",
+                url: "https://a-protected-api-website.azurewebsites.net/api/the-api-you-are-calling",
+                headers: {
+                    'Authorization': 'Bearer ' + token,
+                },
+            }).done(function (data) {
+
+                $apiData.html(JSON.stringify(data));
+                
+
+            }).fail(function () {
+                alert('Error getting api data')
+            }).always(function () {
+            	//foo
+            });
+        });
+		}
  });
 </script>
 
